@@ -1,9 +1,20 @@
 //jshint esversion:6
+require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
+
+const app = express();
+
+ console.log(process.env.API_KEY);
+
+app.use(express.static("public"));
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
 
 mongoose.connect("mongodb://localhost:27017/userDB");
 
@@ -13,18 +24,16 @@ const userSchema =new mongoose.Schema({
     password: String,
 });
 
-const secret= "this-is-secret";
-userSchema.plugin(encrypt, {secret: secret,encryptedFields: ["password"]});
+
+
+userSchema.plugin(encrypt, {secret:process.env.SECRET,encryptedFields: ["password"]});
 
 const User = mongoose.model("User", userSchema);
 
-const app = express();
 
-app.use(express.static("public"));
-app.set('view engine', 'ejs');
-app.use(bodyParser.urlencoded({
-    extended: true
-}));
+
+
+
 
 app.get("/", function (req, res) {
     res.render("home");
@@ -43,6 +52,7 @@ app.post("/register", function (req, res) {
         email: req.body.username,
         password: req.body.password,
     });
+    // newUser.setPassword(req.body.password);
 
     newUser.save()
         .then(function () {
@@ -53,16 +63,23 @@ app.post("/register", function (req, res) {
         });
 });
 
+
+// Login route
 app.post("/login", function(req, res) {
     const username = req.body.username;
     const password = req.body.password;
 
     User.findOne({ email: username })
         .then(foundUser => {
-            if (foundUser && foundUser.password === password) {
-                res.render("secrets");
+            if (foundUser) {
+                // Comparing the entered password with the encrypted password in the database
+                if (foundUser.password === password) {
+                    res.render("secrets");
+                } else {
+                    res.send("Invalid username or password");
+                }
             } else {
-                res.send("Invalid username or password");
+                res.send("User not found"); // User with the given username does not exist
             }
         })
         .catch(err => {
@@ -70,6 +87,7 @@ app.post("/login", function(req, res) {
             res.status(500).send("An error occurred");
         });
 });
+
 
 
 
